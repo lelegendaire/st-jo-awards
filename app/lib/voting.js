@@ -199,6 +199,7 @@ export async function getResults(sessionId) {
     .eq("session_id", sessionId);
 
   const results = [];
+  const questionStats = [];
 
   let totalVotes = 0;
 
@@ -230,7 +231,14 @@ export async function getResults(sessionId) {
       votes,
       totalVotes: questionTotal,
     });
+
+    questionStats.push({
+      questionIndex: question.position,
+      votes: questionTotal,
+    });
   }
+
+  const currentQuestionStats = questionStats[session.current_question] || { votes: 0 };
 
   return {
     id: session.id,
@@ -238,6 +246,8 @@ export async function getResults(sessionId) {
     isActive: session.is_active,
     totalVotes,
     totalParticipants,
+    currentQuestion: session.current_question,
+    votesOnCurrentQuestion: currentQuestionStats.votes,
     results,
   };
 }

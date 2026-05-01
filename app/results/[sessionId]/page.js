@@ -214,7 +214,12 @@ export default function ResultsPage() {
           </div>
 
           <div className="bg-gray-100 rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-2">Current Question</p>
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-sm text-gray-600">Current Question</p>
+              <p className="text-sm font-medium text-blue-600">
+                {results.votesOnCurrentQuestion} / {results.totalParticipants || 0} voters
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-green-600">
                 Question {session.current_question + 1}

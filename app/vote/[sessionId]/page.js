@@ -8,7 +8,6 @@ export default function VotePage() {
   const params = useParams();
   const router = useRouter();
   const [session, setSession] = useState(null);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
   const [hasVoted, setHasVoted] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [error, setError] = useState(null);
@@ -51,11 +50,9 @@ export default function VotePage() {
         // If admin moved past last question, show finished state
         if (updatedSession.current_question >= session.questions.length) {
           setServerQuestion(updatedSession.current_question);
-          setCurrentQuestion(updatedSession.current_question);
           setHasVoted(true);
-        } else {
+        } else if (updatedSession.current_question !== serverQuestion) {
           setServerQuestion(updatedSession.current_question);
-          setCurrentQuestion(updatedSession.current_question);
           setSelectedAnswer(null);
           setHasVoted(false);
         }
@@ -72,10 +69,17 @@ export default function VotePage() {
 
   const handleSubmitVote = async () => {
     if (selectedAnswer === null) return;
+ // 🔒 check sync avec serveur
+  const updatedSession = await getSession(params.sessionId);
 
+  if (!updatedSession || updatedSession.current_question !== serverQuestion) {
+    setError("Question changed, please wait...");
+    setSelectedAnswer(null);
+    return;
+  }
     const success = await addVote(
       params.sessionId,
-      currentQuestion,
+      serverQuestion,
       selectedAnswer,
       participantId
     );
@@ -138,36 +142,57 @@ export default function VotePage() {
 
   if (hasVoted) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg
-              className="w-8 h-8 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+          <div className="mb-6">
+            <div className="relative w-20 h-20 mx-auto">
+              <div className="absolute inset-0 bg-blue-400 rounded-full opacity-20 animate-ping"></div>
+              <div className="relative w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-10 h-10 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+            </div>
           </div>
           <h1 className="text-2xl font-bold mb-2 text-gray-800">
-            Vote Submitted!
+            Waiting for Host
           </h1>
-          <p className="text-gray-500 mb-2">
-            Waiting for the host to advance to the next question...
+          <p className="text-gray-500 mb-4">
+            Your answer has been submitted
           </p>
-          <p className="text-sm text-gray-400 mb-6">
-            Question {serverQuestion + 1} of {session.questions.length}
-          </p>
-          {serverQuestion < session.questions.length - 1 && (
-            <div className="animate-pulse text-green-600">
-              <p className="text-sm">Next question coming soon...</p>
+          <div className="bg-gray-50 rounded-lg p-4 mb-4">
+            <p className="text-sm text-gray-600 mb-1">
+              Current Question
+            </p>
+            <p className="text-lg font-semibold text-gray-800">
+              {serverQuestion + 1} / {session.questions.length}
+            </p>
+          </div>
+          {serverQuestion < session.questions.length - 1 ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-2 text-blue-600">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+              <p className="text-sm text-gray-500">
+                The host will reveal results and start the next question soon
+              </p>
             </div>
+          ) : (
+            <p className="text-sm text-green-600 font-medium">
+              Final question - results coming soon!
+            </p>
           )}
         </div>
       </div>
@@ -175,7 +200,7 @@ export default function VotePage() {
   }
 
   // Don't show question if user is ahead of admin (shouldn't happen, but safety check)
-  if (currentQuestion >= session.questions.length) {
+  if (serverQuestion >= session.questions.length) {
     return (
       <div className="min-h-screen bg-linear-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
@@ -205,7 +230,7 @@ export default function VotePage() {
     );
   }
 
-  const question = session.questions[currentQuestion];
+  const question = session.questions[serverQuestion];
   const colors = [
     "bg-red-500 hover:bg-red-600",
     "bg-green-500 hover:bg-green-600",
@@ -222,7 +247,7 @@ export default function VotePage() {
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-gray-500">
-              Question {currentQuestion + 1} of {session.questions.length}
+              Question {serverQuestion + 1} of {session.questions.length}
             </span>
             <span className="text-sm text-gray-500">{session.title}</span>
           </div>
@@ -230,7 +255,7 @@ export default function VotePage() {
             <div
               className="bg-blue-600 h-2 rounded-full transition-all"
               style={{
-                width: `${((currentQuestion + 1) / session.questions.length) * 100}%`,
+                width: `${((serverQuestion + 1) / session.questions.length) * 100}%`,
               }}
             />
           </div>
@@ -263,16 +288,14 @@ export default function VotePage() {
 
         <button
           onClick={handleSubmitVote}
-          disabled={selectedAnswer === null}
+          disabled={selectedAnswer === null || hasVoted}
           className={`w-full py-4 rounded-xl font-semibold text-white transition-colors ${
             selectedAnswer === null
               ? "bg-gray-300 cursor-not-allowed"
               : "bg-gray-800 hover:bg-gray-900"
           }`}
         >
-          {currentQuestion < session.questions.length - 1
-            ? "Next Question"
-            : "Submit Vote"}
+          Submit Answer
         </button>
       </div>
     </div>
