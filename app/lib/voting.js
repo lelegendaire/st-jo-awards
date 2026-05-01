@@ -12,6 +12,7 @@ export async function createSession({ title, pin, questions }) {
     title,
     pin,
     is_active: false,
+    current_question: 0,
   });
 
   if (sessionError) throw sessionError;
@@ -91,6 +92,7 @@ export async function getSession(sessionId) {
 
   return {
     ...session,
+    current_question: session.current_question || 0,
     questions: formattedQuestions,
   };
 }
@@ -101,10 +103,27 @@ export async function getSession(sessionId) {
 export async function startSession(sessionId) {
   const { error } = await supabase
     .from("sessions")
-    .update({ is_active: true })
+    .update({ is_active: true, current_question: 0 })
     .eq("id", sessionId);
 
   return !error;
+}
+
+export async function advanceQuestion(sessionId) {
+  const session = await getSession(sessionId);
+  if (!session) return { success: false };
+
+  const nextQuestion = session.current_question + 1;
+  if (nextQuestion >= session.questions.length) {
+    return { success: false, message: "Already on last question" };
+  }
+
+  const { error } = await supabase
+    .from("sessions")
+    .update({ current_question: nextQuestion })
+    .eq("id", sessionId);
+
+  return { success: !error, currentQuestion: nextQuestion };
 }
 
 export async function stopSession(sessionId) {

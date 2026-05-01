@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getSession, getResults } from "../../lib/voting";
+import { getSession, getResults, advanceQuestion } from "../../lib/voting";
 
 export default function ResultsPage() {
   const params = useParams();
@@ -14,6 +14,7 @@ export default function ResultsPage() {
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [advancing, setAdvancing] = useState(false);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -53,6 +54,17 @@ export default function ResultsPage() {
     } else {
       setError("Incorrect PIN");
     }
+  };
+
+  const handleNextQuestion = async () => {
+    setAdvancing(true);
+    const result = await advanceQuestion(params.sessionId);
+    if (result.success) {
+      setRefreshKey(refreshKey + 1);
+    } else {
+      setError(result.message || "Failed to advance question");
+    }
+    setAdvancing(false);
   };
 
   const colors = [
@@ -184,12 +196,42 @@ export default function ResultsPage() {
                 Total Votes: {results.totalVotes}
               </p>
             </div>
-            <button
-              onClick={() => setRefreshKey(refreshKey + 1)}
-              className="px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-            >
-              Refresh
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setRefreshKey(refreshKey + 1)}
+                className="px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+              >
+                Refresh
+              </button>
+              <button
+                onClick={handleNextQuestion}
+                disabled={advancing}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-400 disabled:cursor-not-allowed"
+              >
+                {advancing ? "..." : "Next Question"}
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-gray-100 rounded-lg p-4">
+            <p className="text-sm text-gray-600 mb-2">Current Question</p>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-green-600">
+                Question {session.current_question + 1}
+              </span>
+              <span className="text-gray-400">/</span>
+              <span className="text-gray-600">
+                {session.questions.length}
+              </span>
+            </div>
+            <div className="w-full bg-gray-300 rounded-full h-2 mt-2">
+              <div
+                className="bg-green-600 h-2 rounded-full transition-all"
+                style={{
+                  width: `${((session.current_question + 1) / session.questions.length) * 100}%`,
+                }}
+              />
+            </div>
           </div>
         </div>
 

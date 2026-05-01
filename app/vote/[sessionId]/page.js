@@ -14,6 +14,7 @@ export default function VotePage() {
   const [error, setError] = useState(null);
   const [participantId, setParticipantId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [serverQuestion, setServerQuestion] = useState(0);
 
   useEffect(() => {
     const init = async () => {
@@ -33,11 +34,37 @@ export default function VotePage() {
         return;
       }
       setSession(loadedSession);
+      setServerQuestion(loadedSession.current_question);
       setIsLoading(false);
     };
 
     init();
   }, [params.sessionId]);
+
+  // Poll for question changes from server
+  useEffect(() => {
+    if (!session) return;
+
+    const checkForUpdates = async () => {
+      const updatedSession = await getSession(params.sessionId);
+      if (updatedSession && updatedSession.current_question !== serverQuestion) {
+        // If admin moved past last question, show finished state
+        if (updatedSession.current_question >= session.questions.length) {
+          setServerQuestion(updatedSession.current_question);
+          setCurrentQuestion(updatedSession.current_question);
+          setHasVoted(true);
+        } else {
+          setServerQuestion(updatedSession.current_question);
+          setCurrentQuestion(updatedSession.current_question);
+          setSelectedAnswer(null);
+          setHasVoted(false);
+        }
+      }
+    };
+
+    const interval = setInterval(checkForUpdates, 2000);
+    return () => clearInterval(interval);
+  }, [session, params.sessionId, serverQuestion]);
 
   const handleAnswerSelect = (answerIndex) => {
     setSelectedAnswer(answerIndex);
@@ -57,12 +84,8 @@ export default function VotePage() {
       return;
     }
 
-    if (currentQuestion < session.questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-      setSelectedAnswer(null);
-    } else {
-      setHasVoted(true);
-    }
+    // After voting, wait for admin to advance
+    setHasVoted(true);
   };
 
   if (error) {
@@ -135,15 +158,48 @@ export default function VotePage() {
           <h1 className="text-2xl font-bold mb-2 text-gray-800">
             Vote Submitted!
           </h1>
+          <p className="text-gray-500 mb-2">
+            Waiting for the host to advance to the next question...
+          </p>
+          <p className="text-sm text-gray-400 mb-6">
+            Question {serverQuestion + 1} of {session.questions.length}
+          </p>
+          {serverQuestion < session.questions.length - 1 && (
+            <div className="animate-pulse text-green-600">
+              <p className="text-sm">Next question coming soon...</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Don't show question if user is ahead of admin (shouldn't happen, but safety check)
+  if (currentQuestion >= session.questions.length) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-8 h-8 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold mb-2 text-gray-800">
+            Voting Complete!
+          </h1>
           <p className="text-gray-500 mb-6">
             Thank you for participating in {session.title}
           </p>
-          <button
-            onClick={() => router.push("/")}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-          >
-            Back to Home
-          </button>
         </div>
       </div>
     );
