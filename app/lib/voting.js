@@ -275,3 +275,35 @@ export async function deleteSession(sessionId) {
 
   return !error;
 }
+
+/* ---------------------------------- */
+/* QUESTION TEMPLATES */
+/* ---------------------------------- */
+export async function getTemplates() {
+  const { data } = await supabase
+    .from("question_templates")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  return data || [];
+}
+
+export async function createTemplate({ name, questions }) {
+  const { data, error } = await supabase
+    .from("question_templates")
+    .insert({ name, questions })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTemplate(templateId) {
+  const { error } = await supabase
+    .from("question_templates")
+    .delete()
+    .eq("id", templateId);
+
+  return !error;
+}

@@ -1,18 +1,100 @@
 "use client";
 
 import { useState, useEffect } from "react";
-
 import { useRouter } from "next/navigation";
 import QRCode from "react-qr-code";
 import {
   createSession,
   getAllSessions,
-  startSession
+  startSession,
+  getTemplates,
+  createTemplate,
+  deleteTemplate,
 } from "./lib/voting";
+
+function SpotlightBg() {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      <div
+        className="absolute top-0 left-1/2 w-96 h-96 rounded-full"
+        style={{
+          background: "radial-gradient(circle, rgba(212,175,55,0.08) 0%, transparent 70%)",
+          transform: "translateX(-50%)",
+          animation: "spotlight-sweep 8s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="absolute bottom-0 left-1/4 w-64 h-64 rounded-full"
+        style={{
+          background: "radial-gradient(circle, rgba(255,215,0,0.05) 0%, transparent 70%)",
+          animation: "spotlight-sweep 10s ease-in-out infinite reverse",
+        }}
+      />
+    </div>
+  );
+}
+
+const STAR_DATA = Array.from({ length: 30 }, (_, i) => ({
+  id: i,
+  left: `${(i * 37 + 13) % 100}%`,
+  top: `${(i * 53 + 7) % 100}%`,
+  delay: `${(i * 0.3) % 3}s`,
+  duration: `${2 + (i % 4) * 0.5}s`,
+}));
+
+function StarsBg() {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      {STAR_DATA.map((star) => (
+        <div
+          key={star.id}
+          className="absolute w-1 h-1 rounded-full bg-spotlight/30 animate-star-twinkle"
+          style={{
+            left: star.left,
+            top: star.top,
+            animationDelay: star.delay,
+            animationDuration: star.duration,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function InputField({ label, ...props }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-dim-light mb-2">
+        {label}
+      </label>
+      <input
+        {...props}
+        className="w-full px-4 py-3 bg-backstage border border-spotlight/20 rounded-xl text-foreground placeholder-dim-light/50 focus:outline-none focus:border-spotlight/60 focus:ring-1 focus:ring-spotlight/30 transition-all duration-200"
+      />
+    </div>
+  );
+}
+
+function PrimaryButton({ children, variant = "gold", ...props }) {
+  const baseStyle = "w-full py-3.5 rounded-xl font-semibold transition-all duration-200 active:scale-95";
+  const variants = {
+    gold: "bg-spotlight text-stage hover:bg-center-stage disabled:opacity-40 disabled:cursor-not-allowed",
+    outline: "border border-spotlight/40 text-spotlight hover:bg-spotlight/10 hover:border-spotlight/60",
+    ghost: "text-dim-light hover:text-foreground",
+  };
+  return (
+    <button
+      {...props}
+      className={`${baseStyle} ${variants[variant]}`}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function Home() {
   const router = useRouter();
-  const [step, setStep] = useState("setup"); // setup, questions, preview, active
+  const [step, setStep] = useState("setup");
   const [title, setTitle] = useState("");
   const [pin, setPin] = useState("");
   const [numQuestions, setNumQuestions] = useState(1);
@@ -21,6 +103,36 @@ export default function Home() {
   const [sessionId, setSessionId] = useState(null);
   const [sessionPin, setSessionPin] = useState("");
   const [sessions, setSessions] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showCreateTemplate, setShowCreateTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+
+  useEffect(() => {
+    const load = async () => {
+      const data = await getAllSessions();
+      setSessions(data);
+      const templatesData = await getTemplates();
+      setTemplates(templatesData);
+    };
+    load();
+  }, []);
+
+  const handleUseTemplate = (e) => {
+    e.preventDefault();
+    if (!selectedTemplate) {
+      const newQuestions = Array.from({ length: numQuestions }, (_, i) => ({
+        text: `Question ${i + 1}`,
+        answers: Array.from(
+          { length: answersPerQuestion },
+          (_, j) => `Answer ${j + 1}`
+        ),
+      }));
+      setQuestions(newQuestions);
+    }
+    setStep("questions");
+  };
 
   const handleCreateSession = (e) => {
     e.preventDefault();
@@ -48,12 +160,11 @@ export default function Home() {
   };
 
   const handleSaveQuestions = async () => {
-  const session = await createSession({ title, pin, questions });
-
-  setSessionId(session.id);
-  setSessionPin(pin);
-  setStep("preview");
-};
+    const session = await createSession({ title, pin, questions });
+    setSessionId(session.id);
+    setSessionPin(pin);
+    setStep("preview");
+  };
 
   const handleStartVoting = async () => {
     await startSession(sessionId);
@@ -64,108 +175,213 @@ export default function Home() {
     router.push(`/results/${sessionId}`);
   };
 
-
-useEffect(() => {
-  const load = async () => {
-    const data = await getAllSessions();
-    setSessions(data);
+  const handleSelectTemplate = (template) => {
+    const parsedQuestions = typeof template.questions === "string"
+      ? JSON.parse(template.questions)
+      : template.questions;
+    if (!parsedQuestions || parsedQuestions.length === 0) return;
+    setQuestions(parsedQuestions);
+    setNumQuestions(parsedQuestions.length);
+    const allAnswers = parsedQuestions.map((q) => q.answers?.length || 0);
+    setAnswersPerQuestion(Math.max(2, ...allAnswers));
+    setSelectedTemplate(template.id);
+    setShowTemplates(false);
+    if (!title) setTitle(template.name);
   };
 
-  load();
-}, []);
+  const handleSaveAsTemplate = async () => {
+    if (!templateName.trim()) return;
+    await createTemplate({ name: templateName, questions });
+    const templatesData = await getTemplates();
+    setTemplates(templatesData);
+    setShowCreateTemplate(false);
+    setTemplateName("");
+  };
+
+  const handleDeleteTemplate = async (templateId) => {
+    await deleteTemplate(templateId);
+    const templatesData = await getTemplates();
+    setTemplates(templatesData);
+    if (selectedTemplate === templateId) {
+      setSelectedTemplate(null);
+    }
+  };
+
+  if (showCreateTemplate) {
+    return (
+      <div className="min-h-screen bg-stage flex items-center justify-center p-4 relative">
+        <SpotlightBg />
+        <StarsBg />
+        <div className="relative w-full max-w-md animate-scale-in">
+          <div className="text-center mb-8">
+            <div className="inline-block mb-4">
+              <svg className="w-12 h-12 text-spotlight mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">Save as Template</h1>
+            <p className="text-dim-light mt-2">Save your current questions for reuse</p>
+          </div>
+
+          <div className="bg-backstage/80 backdrop-blur-sm border border-spotlight/10 rounded-2xl p-6 space-y-5">
+            <InputField
+              label="Template Name"
+              type="text"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              required
+              placeholder="e.g., Performance Voting"
+            />
+
+            <div className="bg-wings/50 rounded-xl p-4">
+              <p className="text-sm text-dim-light mb-2">
+                This will save {questions.length} question{questions.length !== 1 ? "s" : ""}:
+              </p>
+              <ul className="text-xs text-dim-light/70 space-y-1">
+                {questions.map((q, i) => (
+                  <li key={i} className="truncate">{q.text}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <PrimaryButton
+                variant="outline"
+                onClick={() => { setShowCreateTemplate(false); setTemplateName(""); }}
+              >
+                Cancel
+              </PrimaryButton>
+              <PrimaryButton
+                onClick={handleSaveAsTemplate}
+                disabled={!templateName.trim()}
+              >
+                Save
+              </PrimaryButton>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (step === "setup") {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-          <h1 className="text-3xl font-bold text-center mb-2 text-gray-800">
-            QR Code Voting
-          </h1>
-          <p className="text-gray-500 text-center mb-8">
-            Create an interactive voting session
-          </p>
+      <div className="min-h-screen bg-stage flex items-center justify-center p-4 relative">
+        <SpotlightBg />
+        <StarsBg />
+        <div className="relative w-full max-w-md animate-scale-in">
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-extrabold animate-text-shimmer tracking-tight">
+              SAINT-JO
+            </h1>
+            <p className="text-dim-light mt-3 text-lg">Create a voting session</p>
+          </div>
 
-          <form onSubmit={handleCreateSession} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Session Title
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="My Voting Session"
-              />
-            </div>
+          <form onSubmit={handleUseTemplate} className="bg-backstage/80 backdrop-blur-sm border border-spotlight/10 rounded-2xl p-6 space-y-5">
+            <InputField
+              label="Session Title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              placeholder="e.g., Performance Awards 2026"
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Admin PIN (4 digits)
-              </label>
-              <input
-                type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                required
-                maxLength={4}
-                pattern="\d{4}"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="1234"
-              />
-            </div>
+            <InputField
+              label="Admin PIN (4 digits)"
+              type="password"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              required
+              maxLength={4}
+              pattern="\d{4}"
+              placeholder="1234"
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Number of Questions
-              </label>
-              <input
+            <div className="grid grid-cols-2 gap-4">
+              <InputField
+                label="Questions"
                 type="number"
                 value={numQuestions}
                 onChange={(e) => setNumQuestions(Math.max(1, parseInt(e.target.value) || 1))}
                 min={1}
                 max={10}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Answers per Question
-              </label>
-              <input
+              <InputField
+                label="Answers each"
                 type="number"
                 value={answersPerQuestion}
                 onChange={(e) => setAnswersPerQuestion(Math.max(2, parseInt(e.target.value) || 4))}
                 min={2}
                 max={6}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Next: Write Questions
-            </button>
+            <PrimaryButton type="submit">
+              Write Questions
+            </PrimaryButton>
           </form>
 
+          {templates.length > 0 && (
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-dim-light">Templates</h3>
+                <button
+                  onClick={() => setShowTemplates(!showTemplates)}
+                  className="text-xs text-spotlight hover:text-center-stage transition-colors"
+                >
+                  {showTemplates ? "Hide" : "Show"}
+                </button>
+              </div>
+
+              {showTemplates && (
+                <div className="space-y-2">
+                  {templates.map((template) => {
+                    const parsedQ = typeof template.questions === "string"
+                      ? JSON.parse(template.questions)
+                      : template.questions;
+                    return (
+                      <div
+                        key={template.id}
+                        className="flex items-center justify-between px-4 py-3 bg-backstage/60 border border-spotlight/10 rounded-xl hover:border-spotlight/30 transition-all"
+                      >
+                        <button
+                          onClick={() => handleSelectTemplate(template)}
+                          className="flex-1 text-left"
+                        >
+                          <span className="font-medium text-foreground">{template.name}</span>
+                          <span className="text-xs text-dim-light ml-2">
+                            {parsedQ.length}q
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTemplate(template.id)}
+                          className="text-dim-light hover:text-red-400 p-1 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {sessions.length > 0 && (
-            <div className="mt-8 pt-6 border-t">
-              <h3 className="text-sm font-medium text-gray-600 mb-3">
-                Recent Sessions
-              </h3>
+            <div className="mt-8 pt-6 border-t border-spotlight/10">
+              <h3 className="text-sm font-medium text-dim-light mb-3">Recent Sessions</h3>
               <div className="space-y-2">
                 {sessions.slice(0, 3).map((s) => (
                   <button
                     key={s.id}
                     onClick={() => router.push(`/results/${s.id}`)}
-                    className="w-full text-left px-3 py-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
+                    className="w-full text-left px-4 py-3 bg-backstage/60 border border-spotlight/10 rounded-xl hover:border-spotlight/30 transition-all"
                   >
-                    <span className="font-medium">{s.title}</span>
-                    <span className="text-xs text-gray-400 ml-2">
+                    <span className="font-medium text-foreground">{s.title}</span>
+                    <span className="text-xs text-dim-light ml-2">
                       {new Date(s.created_at).toLocaleTimeString()}
                     </span>
                   </button>
@@ -180,40 +396,44 @@ useEffect(() => {
 
   if (step === "questions") {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 py-8 px-4">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
-            Write Your Questions
-          </h1>
+      <div className="min-h-screen bg-stage py-8 px-4 relative">
+        <SpotlightBg />
+        <StarsBg />
+        <div className="relative max-w-2xl mx-auto">
+          <div className="text-center mb-8 animate-fade-up">
+            <h1 className="text-2xl font-bold text-foreground">Write Your Questions</h1>
+            <p className="text-dim-light mt-2">Each question is a stage moment</p>
+          </div>
 
           <div className="space-y-6">
             {questions.map((question, qIndex) => (
               <div
                 key={qIndex}
-                className="bg-white rounded-xl shadow-md p-6"
+                className="bg-backstage/80 backdrop-blur-sm border border-spotlight/10 rounded-2xl p-6 animate-fade-up"
+                style={{ animationDelay: `${qIndex * 0.1}s` }}
               >
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                  Question {qIndex + 1}
-                </h2>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="w-8 h-8 rounded-full bg-spotlight/10 border border-spotlight/30 flex items-center justify-center text-spotlight text-sm font-bold">
+                    {qIndex + 1}
+                  </span>
+                  <h2 className="text-lg font-semibold text-foreground">Question {qIndex + 1}</h2>
+                </div>
                 <input
                   type="text"
                   value={question.text}
                   onChange={(e) => updateQuestion(qIndex, e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your question here"
+                  className="w-full px-4 py-3 bg-wings/50 border border-spotlight/20 rounded-xl text-foreground placeholder-dim-light/50 focus:outline-none focus:border-spotlight/60 focus:ring-1 focus:ring-spotlight/30 transition-all mb-4"
+                  placeholder="Enter your question"
                 />
-
                 <div className="grid grid-cols-2 gap-3">
                   {question.answers.map((answer, aIndex) => (
                     <input
                       key={aIndex}
                       type="text"
                       value={answer}
-                      onChange={(e) =>
-                        updateAnswer(qIndex, aIndex, e.target.value)
-                      }
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder={`Answer ${aIndex + 1}`}
+                      onChange={(e) => updateAnswer(qIndex, aIndex, e.target.value)}
+                      className="px-4 py-3 bg-wings/50 border border-spotlight/20 rounded-xl text-foreground placeholder-dim-light/50 focus:outline-none focus:border-spotlight/60 focus:ring-1 focus:ring-spotlight/30 transition-all"
+                      placeholder={`Option ${String.fromCharCode(65 + aIndex)}`}
                     />
                   ))}
                 </div>
@@ -221,19 +441,27 @@ useEffect(() => {
             ))}
           </div>
 
-          <div className="flex gap-4 mt-8">
-            <button
+          <div className="flex gap-3 mt-8 animate-fade-up" style={{ animationDelay: "0.3s" }}>
+            <PrimaryButton
+              variant="outline"
               onClick={() => setStep("setup")}
-              className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
+              className="flex-1"
             >
               Back
-            </button>
-            <button
-              onClick={handleSaveQuestions}
-              className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            </PrimaryButton>
+            <PrimaryButton
+              variant="outline"
+              onClick={() => setShowCreateTemplate(true)}
+              className="flex-1"
             >
-              Generate QR Code
-            </button>
+              Save Template
+            </PrimaryButton>
+            <PrimaryButton
+              onClick={handleSaveQuestions}
+              className="flex-1"
+            >
+              Generate QR
+            </PrimaryButton>
           </div>
         </div>
       </div>
@@ -244,42 +472,45 @@ useEffect(() => {
     const voteUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/vote/${sessionId}`;
 
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg text-center">
-          <h1 className="text-2xl font-bold mb-2 text-gray-800">{title}</h1>
-          <p className="text-gray-500 mb-6">Session created successfully!</p>
-
-          <div className="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6 inline-block">
-            <QRCode value={voteUrl} size={200} />
+      <div className="min-h-screen bg-stage flex items-center justify-center p-4 relative">
+        <SpotlightBg />
+        <StarsBg />
+        <div className="relative w-full max-w-lg text-center animate-scale-in">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+            <p className="text-dim-light mt-2">Session ready</p>
           </div>
 
-          <p className="text-sm text-gray-600 mb-2">
-            Scan this QR code to vote
-          </p>
-          <p className="text-xs text-gray-400 mb-6 break-all">{voteUrl}</p>
+          <div className="bg-backstage/80 backdrop-blur-sm border border-spotlight/20 rounded-2xl p-8 mb-6 animate-gold-pulse inline-block">
+            <div className="bg-white rounded-xl p-4">
+              <QRCode value={voteUrl} size={200} />
+            </div>
+          </div>
 
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <p className="text-sm text-gray-600">
-              Admin PIN: <span className="font-bold">{sessionPin}</span>
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              Save this PIN to view results
+          <p className="text-sm text-dim-light mb-2">Scan to vote</p>
+          <p className="text-xs text-dim-light/50 mb-6 break-all">{voteUrl}</p>
+
+          <div className="bg-spotlight/5 border border-spotlight/20 rounded-xl p-4 mb-6">
+            <p className="text-sm text-spotlight font-medium">Waiting to start</p>
+            <p className="text-xs text-dim-light mt-1">
+              Participants see a waiting screen until you begin
             </p>
           </div>
 
-          <div className="flex gap-4">
-            <button
-              onClick={handleStartVoting}
-              className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
-            >
+          <div className="bg-wings/50 rounded-xl p-4 mb-8">
+            <p className="text-sm text-dim-light">
+              Admin PIN: <span className="font-bold text-foreground tracking-widest">{sessionPin}</span>
+            </p>
+            <p className="text-xs text-dim-light/50 mt-1">Save this to view results</p>
+          </div>
+
+          <div className="flex gap-3">
+            <PrimaryButton onClick={handleStartVoting} className="flex-1">
               Start Voting
-            </button>
-            <button
-              onClick={handleViewResults}
-              className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-            >
+            </PrimaryButton>
+            <PrimaryButton variant="outline" onClick={handleViewResults} className="flex-1">
               View Results
-            </button>
+            </PrimaryButton>
           </div>
         </div>
       </div>
@@ -288,36 +519,26 @@ useEffect(() => {
 
   if (step === "active") {
     return (
-      <div className="min-h-screen bg-linear-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg
-              className="w-8 h-8 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+      <div className="min-h-screen bg-stage flex items-center justify-center p-4 relative">
+        <SpotlightBg />
+        <StarsBg />
+        <div className="relative w-full max-w-md text-center animate-scale-in">
+          <div className="mb-8">
+            <div className="relative w-20 h-20 mx-auto mb-6">
+              <div className="absolute inset-0 rounded-full border-2 border-center-stage/30 animate-glow-ring" />
+              <div className="relative w-20 h-20 bg-spotlight/10 border border-spotlight/40 rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-center-stage" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">Voting is Live</h1>
+            <p className="text-dim-light mt-2">Participants can scan and vote now</p>
           </div>
-          <h1 className="text-2xl font-bold mb-2 text-gray-800">
-            Voting is Active!
-          </h1>
-          <p className="text-gray-500 mb-6">
-            Participants can now scan the QR code and vote
-          </p>
 
-          <button
-            onClick={handleViewResults}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-          >
+          <PrimaryButton onClick={handleViewResults}>
             View Live Results
-          </button>
+          </PrimaryButton>
         </div>
       </div>
     );

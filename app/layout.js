@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "QR Code Awards",
-  description: "Vote for st-joseph awards",
+  title: "Saint-Jo Awards",
+  description: "Vote for the Saint-Joseph Awards ceremony",
 };
 
 export default function RootLayout({ children }) {
