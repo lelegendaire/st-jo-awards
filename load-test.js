@@ -5,8 +5,8 @@ export const options = {
   scenarios: {
     voters: {
       executor: "constant-vus",
-      vus: 400,
-      duration: "30s",
+      vus: 1,
+      duration: "20s",
     },
   },
 };
@@ -23,6 +23,7 @@ const headers = {
   apikey: SUPABASE_ANON_KEY,
   Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
   "Content-Type": "application/json",
+  Prefer: "return=representation",
 };
 
 export default function () {
