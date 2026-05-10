@@ -30,8 +30,8 @@ function PinInput({ value, onChange, onSubmit, error }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Admin Access</h1>
-          <p className="text-dim-light mt-2">Enter your PIN to view results</p>
+          <h1 className="text-2xl font-bold text-foreground">Accès administrateur</h1>
+          <p className="text-dim-light mt-2">Entrez votre PIN pour voir les résultats</p>
         </div>
 
         <form onSubmit={onSubmit} className="bg-backstage/80 backdrop-blur-sm border border-spotlight/10 rounded-2xl p-6 space-y-5">
@@ -55,7 +55,7 @@ function PinInput({ value, onChange, onSubmit, error }) {
             type="submit"
             className="w-full py-3.5 bg-spotlight text-stage rounded-xl font-semibold hover:bg-center-stage transition-colors active:scale-95"
           >
-            View Results
+            Voir les résultats
           </button>
         </form>
       </div>
@@ -84,7 +84,7 @@ function ResultBar({ answer, count, percentage, barWidth, index, isMax }) {
         <div
           className={`h-full rounded-full transition-all duration-700 ease-out ${
             isMax
-              ? "bg-gradient-to-r from-spotlight to-center-stage"
+              ? "bg-linear-to-r from-spotlight to-center-stage"
               : "bg-spotlight/40"
           }`}
           style={{ width: `${barWidth}%` }}
@@ -102,7 +102,7 @@ export default function ResultsPage() {
   const [pinInput, setPinInput] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshKey, setActualiserKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
 
@@ -110,7 +110,7 @@ export default function ResultsPage() {
     const loadSession = async () => {
       const loadedSession = await getSession(params.sessionId);
       if (!loadedSession) {
-        setError("Session not found or has expired");
+        setError("Session non trouvée ou expirée");
         setIsLoading(false);
         return;
       }
@@ -154,7 +154,7 @@ export default function ResultsPage() {
     setAdvancing(true);
     const result = await advanceQuestion(params.sessionId);
     if (result.success) {
-      setRefreshKey(refreshKey + 1);
+      setActualiserKey(refreshKey + 1);
     } else {
       setError(result.message || "Failed to advance question");
     }
@@ -172,7 +172,7 @@ export default function ResultsPage() {
               <div className="w-3 h-3 rounded-full bg-center-stage animate-pulse" />
             </div>
           </div>
-          <p className="text-dim-light text-sm">Loading...</p>
+          <p className="text-dim-light text-sm">Chargement...</p>
         </div>
       </div>
     );
@@ -189,12 +189,12 @@ export default function ResultsPage() {
             </svg>
           </div>
           <h1 className="text-xl font-bold text-foreground mb-2">Error</h1>
-          <p className="text-dim-light mb-8">{error || "Session not found or has expired"}</p>
+          <p className="text-dim-light mb-8">{error || "Session non trouvée ou expirée"}</p>
           <button
             onClick={() => router.push("/")}
             className="px-8 py-3 bg-spotlight text-stage rounded-xl font-semibold hover:bg-center-stage transition-colors active:scale-95"
           >
-            Go Home
+            Retour à l'accueil
           </button>
         </div>
       </div>
@@ -242,17 +242,17 @@ export default function ResultsPage() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => setRefreshKey(refreshKey + 1)}
+                onClick={() => setActualiserKey(refreshKey + 1)}
                 className="px-4 py-2 bg-spotlight/10 text-spotlight border border-spotlight/20 rounded-xl hover:bg-spotlight/20 transition-all text-sm font-medium active:scale-95"
               >
-                Refresh
+                Actualiser
               </button>
               <button
                 onClick={handleNextQuestion}
                 disabled={advancing}
                 className="px-4 py-2 bg-spotlight text-stage rounded-xl hover:bg-center-stage transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium active:scale-95"
               >
-                {advancing ? "..." : "Next Question"}
+                {advancing ? "..." : "Question suivante"}
               </button>
             </div>
           </div>
@@ -260,7 +260,7 @@ export default function ResultsPage() {
           {/* Current status */}
           <div className="bg-wings/50 rounded-xl p-4">
             <div className="flex justify-between items-center mb-3">
-              <p className="text-sm text-dim-light">Current Question</p>
+              <p className="text-sm text-dim-light">Question actuelle</p>
               <p className="text-sm text-spotlight font-medium">
                 {results.votesOnCurrentQuestion} / {results.totalParticipants || 0} voted
               </p>
@@ -275,7 +275,7 @@ export default function ResultsPage() {
             </div>
             <div className="w-full bg-wings rounded-full h-1.5 mt-3">
               <div
-                className="bg-gradient-to-r from-spotlight to-center-stage h-1.5 rounded-full transition-all duration-500"
+                className="bg-linear-to-r from-spotlight to-center-stage h-1.5 rounded-full transition-all duration-500"
                 style={{
                   width: `${((session.current_question + 1) / session.questions.length) * 100}%`,
                 }}
@@ -356,7 +356,7 @@ export default function ResultsPage() {
           onClick={() => router.push("/")}
           className="w-full py-4 bg-backstage/80 border border-spotlight/20 text-spotlight rounded-xl font-semibold hover:bg-spotlight/10 hover:border-spotlight/40 transition-all active:scale-95 mt-4"
         >
-          Back to Home
+          Retour à l'accueil
         </button>
       </div>
     </div>

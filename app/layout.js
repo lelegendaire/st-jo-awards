@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Saint-Jo Awards",
-  description: "Vote for the Saint-Joseph Awards ceremony",
+  title: "Prix Saint-Jo",
+  description: "Votez pour la cérémonie des Prix Saint-Joseph",
 };
 
 export default function RootLayout({ children }) {

@@ -226,7 +226,7 @@ export default function VotePage() {
       }
     };
 
-    const interval = setInterval(checkForUpdates, 2000);
+    const interval = setInterval(checkForUpdates, 4000);
     return () => clearInterval(interval);
   }, [session, params.sessionId, serverQuestion]);
 
@@ -239,7 +239,7 @@ export default function VotePage() {
 
     const updatedSession = await getSession(params.sessionId);
     if (!updatedSession || updatedSession.current_question !== serverQuestion) {
-      setError("Question changed, please wait...");
+      setError("Question modifiée, veuillez patienter...");
       setSelectedAnswer(null);
       return;
     }
@@ -251,7 +251,7 @@ export default function VotePage() {
       participantId
     );
     if (!success) {
-      setError("Failed to submit vote");
+      setError("Échec de soumission du vote");
       return;
     }
 
@@ -310,9 +310,9 @@ export default function VotePage() {
         <div className="relative text-center animate-scale-in max-w-sm w-full">
           <div className="mb-10 animate-curtain-reveal">
             <h1 className="text-5xl font-extrabold animate-text-shimmer tracking-tight mb-2">
-              SAINT-JO
+              PRIX SAINT-JO
             </h1>
-            <p className="text-xl text-dim-light tracking-widest uppercase text-sm">Awards</p>
+            <p className="text-xl text-dim-light tracking-widest uppercase ">Prix</p>
           </div>
 
           <div className="bg-backstage/80 backdrop-blur-sm border border-spotlight/10 rounded-2xl p-8 animate-fade-up" style={{ animationDelay: "0.3s" }}>
@@ -325,11 +325,11 @@ export default function VotePage() {
               </div>
             </div>
 
-            <h2 className="text-xl font-bold text-foreground mb-2">Waiting for the Show</h2>
+            <h2 className="text-xl font-bold text-foreground mb-2">En attente du spectacle</h2>
             <p className="text-dim-light mb-6">{session.title}</p>
 
             <WaitingPulse />
-            <p className="text-xs text-dim-light/60 mt-4">The host will begin voting soon</p>
+            <p className="text-xs text-dim-light/60 mt-4">L'hôte commencera le vote bientôt</p>
           </div>
         </div>
       </div>
@@ -354,8 +354,8 @@ export default function VotePage() {
               </div>
             </div>
 
-            <h2 className="text-xl font-bold text-foreground mb-2">Vote Recorded</h2>
-            <p className="text-dim-light mb-6">Your answer has been submitted</p>
+            <h2 className="text-xl font-bold text-foreground mb-2">Vote enregistré</h2>
+            <p className="text-dim-light mb-6">Votre réponse a été soumise</p>
 
             <div className="bg-wings/50 rounded-xl p-4 mb-6">
               <p className="text-xs text-dim-light mb-1">Question</p>
@@ -393,8 +393,8 @@ export default function VotePage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-foreground mb-2">Voting Complete</h1>
-          <p className="text-dim-light">Thank you for participating in {session.title}</p>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Vote terminé</h1>
+          <p className="text-dim-light">Merci d'avoir participé à {session.title}</p>
         </div>
       </div>
     );
@@ -452,18 +452,18 @@ export default function VotePage() {
               w-full py-4 rounded-xl font-semibold transition-all duration-200 active:scale-95
               ${selectedAnswer === null || hasVoted
                 ? "bg-wings/50 text-dim-light/40 cursor-not-allowed"
-                : "bg-gradient-to-r from-spotlight to-center-stage text-stage shadow-lg shadow-spotlight/20 hover:shadow-xl hover:shadow-spotlight/30"
+                : "bg-linear-to-r from-spotlight to-center-stage text-stage shadow-lg shadow-spotlight/20 hover:shadow-xl hover:shadow-spotlight/30"
               }
             `}
           >
-            {hasVoted ? "Vote Submitted" : "Confirm Vote"}
+            {hasVoted ? "Vote Submitted" : "Confirmer le vote"}
           </button>
         </div>
       </div>
 
       {/* Bottom branding */}
       <div className="relative px-4 py-6 text-center">
-        <p className="text-xs text-dim-light/30 tracking-widest uppercase">Saint-Jo Awards</p>
+        <p className="text-xs text-dim-light/30 tracking-widest uppercase">Prix Saint-Jo</p>
       </div>
     </div>
   );
