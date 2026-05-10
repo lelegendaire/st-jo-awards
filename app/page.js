@@ -7,7 +7,7 @@ import {
   createSession,
   getAllSessions,
   startSession,
-  getModèles,
+  getTemplates,
   createTemplate,
   deleteTemplate,
 } from "./lib/voting";
@@ -113,7 +113,7 @@ export default function Home() {
     const load = async () => {
       const data = await getAllSessions();
       setSessions(data);
-      const templatesData = await getModèles();
+      const templatesData = await getTemplates();
       setModèles(templatesData);
     };
     load();
